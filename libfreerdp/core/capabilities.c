@@ -1472,16 +1472,29 @@ void rdp_write_rfx_client_capability_container(STREAM* s, rdpSettings* settings)
 {
 	uint32 captureFlags;
 	uint8 codecMode;
+	uint32  icap_num;
+	uint32  icap_len;
+	uint32 icap_entropy;
 
-	captureFlags = settings->dump_rfx ? 0 : CARDP_CAPS_CAPTURE_NON_CAC;
+	icap_entropy = settings->rfx_codec_entropy;
+	if (icap_entropy == (RFX_CODEC_ENTROPY_RLGR1 | RFX_CODEC_ENTROPY_RLGR3))
+		icap_num = 2;
+	else
+		icap_num = 1;
+
+	icap_len = icap_num * 8;
+
+	printf("rfx_mix_mode=%d, icap_num=%d, entropy=%d\n", settings->rfx_mix_mode, icap_num, icap_entropy);
+
+	captureFlags = (!settings->rfx_mix_mode || settings->dump_rfx) ? 0 : CARDP_CAPS_CAPTURE_NON_CAC;
 	codecMode = settings->rfx_codec_mode;
 
-	stream_write_uint16(s, 49); /* codecPropertiesLength */
+	stream_write_uint16(s, 33 + icap_len); /* codecPropertiesLength */
 
 	/* TS_RFX_CLNT_CAPS_CONTAINER */
-	stream_write_uint32(s, 49); /* length */
+	stream_write_uint32(s, 33 + icap_len); /* length */
 	stream_write_uint32(s, captureFlags); /* captureFlags */
-	stream_write_uint32(s, 37); /* capsLength */
+	stream_write_uint32(s, 21 + icap_len); /* capsLength */
 
 	/* TS_RFX_CAPS */
 	stream_write_uint16(s, CBY_CAPS); /* blockType */
@@ -1490,27 +1503,33 @@ void rdp_write_rfx_client_capability_container(STREAM* s, rdpSettings* settings)
 
 	/* TS_RFX_CAPSET */
 	stream_write_uint16(s, CBY_CAPSET); /* blockType */
-	stream_write_uint32(s, 29); /* blockLen */
+	stream_write_uint32(s, 13 + icap_len); /* blockLen */
 	stream_write_uint8(s, 0x01); /* codecId (MUST be set to 0x01) */
 	stream_write_uint16(s, CLY_CAPSET); /* capsetType */
-	stream_write_uint16(s, 2); /* numIcaps */
+	stream_write_uint16(s, icap_num); /* numIcaps */
 	stream_write_uint16(s, 8); /* icapLen */
 
 	/* TS_RFX_ICAP (RLGR1) */
-	stream_write_uint16(s, CLW_VERSION_1_0); /* version */
-	stream_write_uint16(s, CT_TILE_64x64); /* tileSize */
-	stream_write_uint8(s, codecMode); /* flags */
-	stream_write_uint8(s, CLW_COL_CONV_ICT); /* colConvBits */
-	stream_write_uint8(s, CLW_XFORM_DWT_53_A); /* transformBits */
-	stream_write_uint8(s, CLW_ENTROPY_RLGR1); /* entropyBits */
+	if (icap_entropy & RFX_CODEC_ENTROPY_RLGR1)
+	{
+		stream_write_uint16(s, CLW_VERSION_1_0); /* version */
+		stream_write_uint16(s, CT_TILE_64x64); /* tileSize */
+		stream_write_uint8(s, codecMode); /* flags */
+		stream_write_uint8(s, CLW_COL_CONV_ICT); /* colConvBits */
+		stream_write_uint8(s, CLW_XFORM_DWT_53_A); /* transformBits */
+		stream_write_uint8(s, CLW_ENTROPY_RLGR1); /* entropyBits */
+	}
 
 	/* TS_RFX_ICAP (RLGR3) */
-	stream_write_uint16(s, CLW_VERSION_1_0); /* version */
-	stream_write_uint16(s, CT_TILE_64x64); /* tileSize */
-	stream_write_uint8(s, codecMode); /* flags */
-	stream_write_uint8(s, CLW_COL_CONV_ICT); /* colConvBits */
-	stream_write_uint8(s, CLW_XFORM_DWT_53_A); /* transformBits */
-	stream_write_uint8(s, CLW_ENTROPY_RLGR3); /* entropyBits */
+	if (icap_entropy & RFX_CODEC_ENTROPY_RLGR3)
+	{
+		stream_write_uint16(s, CLW_VERSION_1_0); /* version */
+		stream_write_uint16(s, CT_TILE_64x64); /* tileSize */
+		stream_write_uint8(s, codecMode); /* flags */
+		stream_write_uint8(s, CLW_COL_CONV_ICT); /* colConvBits */
+		stream_write_uint8(s, CLW_XFORM_DWT_53_A); /* transformBits */
+		stream_write_uint8(s, CLW_ENTROPY_RLGR3); /* entropyBits */
+	}
 }
 
 /**
