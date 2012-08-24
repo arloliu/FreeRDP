@@ -129,6 +129,8 @@ int freerdp_parse_args(rdpSettings* settings, int argc, char** argv,
 				"  --plugin: load a virtual channel plugin\n"
 				"  --rfx: enable RemoteFX\n"
 				"  --rfx-mode: RemoteFX operational flags (v[ideo], i[mage]), default is video\n"
+				"  --rfx-only: don't mix other codecs with RemoteFX\n"
+				"  --rfx-entropy: Entropy flags (1:RLGR1, 2:RLGR2, 3:RLGR1 & RLGR3), default is 3\n"
 				"  --frame-ack: number of frames pending to be acknowledged, default is 2 (disable with 0)\n"
 				"  --nsc: enable NSCodec (experimental)\n"
 #ifdef WITH_JPEG
@@ -476,17 +478,42 @@ int freerdp_parse_args(rdpSettings* settings, int argc, char** argv,
 			}
 			if (argv[index][0] == 'v') /* video */
 			{
-				settings->rfx_codec_mode = 0x00;
+				settings->rfx_codec_mode = RFX_CODEC_MODE_VIDEO;
 			}
 			else if (argv[index][0] == 'i') /* image */
 			{
-				settings->rfx_codec_mode = 0x02;
+				settings->rfx_codec_mode = RFX_CODEC_MODE_IMAGE;
 			}
 			else
 			{
 				printf("unknown RemoteFX mode flag\n");
 				return FREERDP_ARGS_PARSE_FAILURE;
 			}
+		}
+		else if (strcmp("--rfx-entropy", argv[index]) == 0)
+		{
+			index++;
+			if (index == argc)
+			{
+				printf("missing RemoteFX entropy flag\n");
+				return FREERDP_ARGS_PARSE_FAILURE;
+			}
+			settings->rfx_codec_entropy = atoi(argv[index]);
+			if (settings->rfx_codec_entropy == 3) /* both RLGR1 and RLGR3 */
+				settings->rfx_codec_entropy = RFX_CODEC_ENTROPY_RLGR1 | RFX_CODEC_ENTROPY_RLGR3;
+			else if (settings->rfx_codec_entropy == 2) /* RLGR3 */
+				settings->rfx_codec_entropy = RFX_CODEC_ENTROPY_RLGR3;
+			else if (settings->rfx_codec_entropy == 1) /* RLGR1 */
+				settings->rfx_codec_entropy = RFX_CODEC_ENTROPY_RLGR1;
+			else
+			{
+				printf("unknown RemoteFX entropy flag, must be 1, 2, or 3\n");
+				return FREERDP_ARGS_PARSE_FAILURE;
+			}
+		}
+		else if (strcmp("--rfx-only", argv[index]) == 0)
+		{
+			settings->rfx_mix_mode = false;
 		}
 		else if (strcmp("--frame-ack", argv[index]) == 0)
 		{

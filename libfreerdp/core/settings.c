@@ -261,6 +261,8 @@ rdpSettings* settings_new(void* instance)
 		settings->fastpath_input = true;
 		settings->fastpath_output = true;
 
+		settings->rfx_mix_mode = true;
+		settings->rfx_codec_entropy = RFX_CODEC_ENTROPY_RLGR1 | RFX_CODEC_ENTROPY_RLGR3;
 		settings->frame_acknowledge = 2;
 
 		settings->uniconv = freerdp_uniconv_new();

@@ -128,6 +128,12 @@
 #define CAPSET_TYPE_BITMAP_CODECS		0x001D
 #define CAPSET_TYPE_FRAME_ACKNOWLEDGE           0x001E
 
+/* RemoteFX Mode and Capabilites */
+#define RFX_CODEC_MODE_VIDEO		0x00
+#define RFX_CODEC_MODE_IMAGE		0x02
+#define RFX_CODEC_ENTROPY_RLGR1		0x01
+#define RFX_CODEC_ENTROPY_RLGR3		0x02
+
 /* SYSTEM_TIME */
 typedef struct
 {
@@ -428,12 +434,14 @@ struct rdp_settings
 	ALIGN64 uint32 rfx_codec_id; /* 282 */
 	ALIGN64 uint32 ns_codec_id; /* 283 */
 	ALIGN64 uint32 rfx_codec_mode; /* 284 */
-	ALIGN64 boolean frame_acknowledge; /* 285 */
-	ALIGN64 boolean jpeg_codec; /* 286 */
-	ALIGN64 uint32 jpeg_codec_id; /* 287 */
-	ALIGN64 uint32 jpeg_quality; /* 288 */
-	ALIGN64 uint32 v3_codec_id; /* 289 */
-	ALIGN64 uint64 paddingM[296 - 290]; /* 290 */
+	ALIGN64 uint32 rfx_codec_entropy; /* 285 */
+	ALIGN64 boolean rfx_mix_mode; /* 286 */
+	ALIGN64 boolean frame_acknowledge; /* 287 */
+	ALIGN64 boolean jpeg_codec; /* 288 */
+	ALIGN64 uint32 jpeg_codec_id; /* 289 */
+	ALIGN64 uint32 jpeg_quality; /* 290 */
+	ALIGN64 uint32 v3_codec_id; /* 291 */
+	ALIGN64 uint64 paddingM[296 - 292]; /* 292 */
 
 	/* Recording */
 	ALIGN64 boolean dump_rfx; /* 296 */
