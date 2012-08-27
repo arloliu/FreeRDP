@@ -97,6 +97,7 @@ void gdi_Bitmap_Decompress(rdpContext* context, rdpBitmap* bitmap,
 		boolean compressed, int codec_id)
 {
 	uint16 size;
+	RFX_CONTEXT* rfx_context;
 	RFX_MESSAGE* msg;
 	uint8* src;
 	uint8* dst;
@@ -119,8 +120,9 @@ void gdi_Bitmap_Decompress(rdpContext* context, rdpBitmap* bitmap,
 			break;
 		case CODEC_ID_REMOTEFX:
 			gdi = context->gdi;
-			rfx_context_set_pixel_format(gdi->rfx_context, RDP_PIXEL_FORMAT_B8G8R8A8);
-			msg = rfx_process_message(gdi->rfx_context, data, length);
+			rfx_context = (RFX_CONTEXT*) gdi->rfx_context;
+			IFCALL(rfx_context->set_pixel_format, rfx_context, RDP_PIXEL_FORMAT_B8G8R8A8);
+			msg = rfx_process_message(rfx_context, data, length, NULL);
 			if (msg == NULL)
 			{
 				printf("gdi_Bitmap_Decompress: rfx Decompression Failed\n");

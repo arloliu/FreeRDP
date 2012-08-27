@@ -178,6 +178,12 @@ set(FREERDP_PLUGIN_PATH "${CMAKE_INSTALL_FULL_LIBDIR}/freerdp")
 # Path to put extensions
 set(FREERDP_EXTENSION_PATH "${CMAKE_INSTALL_FULL_LIBDIR}/freerdp/extensions")
 
+set(FREERDP_DEFAULT_PLATFORM "default")
+set(FREERDP_PLATFORM "${FREERDP_DEFAULT_PLATFORM}")
+if(PLATFORM)
+	set(FREERDP_PLATFORM  "${PLATFORM}")
+endif()
+
 # Include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)

@@ -32,7 +32,11 @@
 #include "rfx_quantization.h"
 #include "rfx_dwt.h"
 
+#include "rfx_compose.h"
 #include "rfx_encode.h"
+
+#include <freerdp/platform.h>
+#include PLATFORM_LOCAL_HEADER_FILE(rfx_platform, FREERDP_PLATFORM)
 
 #define MINMAX(_v,_l,_h) ((_v) < (_l) ? (_l) : ((_v) > (_h) ? (_h) : (_v)))
 
@@ -222,64 +226,66 @@ void rfx_encode_rgb_to_ycbcr(sint16* y_r_buf, sint16* cb_g_buf, sint16* cr_b_buf
 	}
 }
 
-static void rfx_encode_component(RFX_CONTEXT* context, const uint32* quantization_values,
+static void rfx_encode_component(RFX_COMPOSE_CONTEXT* context, const uint32* quantization_values,
 	sint16* data, uint8* buffer, int buffer_size, int* size)
 {
-	PROFILER_ENTER(context->priv->prof_rfx_encode_component);
+	RFX_COMPOSE_CONTEXT_PRIV* priv = (RFX_COMPOSE_CONTEXT_PRIV*) context->priv;
+	PROFILER_ENTER(priv->prof_rfx_encode_component);
 
-	PROFILER_ENTER(context->priv->prof_rfx_dwt_2d_encode);
-		context->dwt_2d_encode(data, context->priv->dwt_buffer);
-	PROFILER_EXIT(context->priv->prof_rfx_dwt_2d_encode);
+	PROFILER_ENTER(priv->prof_rfx_dwt_2d_encode);
+		priv->dwt_2d_encode(data, priv->dwt_buffer);
+	PROFILER_EXIT(priv->prof_rfx_dwt_2d_encode);
 
-	PROFILER_ENTER(context->priv->prof_rfx_quantization_encode);
-		context->quantization_encode(data, quantization_values);
-	PROFILER_EXIT(context->priv->prof_rfx_quantization_encode);
+	PROFILER_ENTER(priv->prof_rfx_quantization_encode);
+		priv->quantization_encode(data, quantization_values);
+	PROFILER_EXIT(priv->prof_rfx_quantization_encode);
 
-	PROFILER_ENTER(context->priv->prof_rfx_differential_encode);
+	PROFILER_ENTER(priv->prof_rfx_differential_encode);
 		rfx_differential_encode(data + 4032, 64);
-	PROFILER_EXIT(context->priv->prof_rfx_differential_encode);
+	PROFILER_EXIT(priv->prof_rfx_differential_encode);
 
-	PROFILER_ENTER(context->priv->prof_rfx_rlgr_encode);
+	PROFILER_ENTER(priv->prof_rfx_rlgr_encode);
 		*size = rfx_rlgr_encode(context->mode, data, 4096, buffer, buffer_size);
-	PROFILER_EXIT(context->priv->prof_rfx_rlgr_encode);
+	PROFILER_EXIT(priv->prof_rfx_rlgr_encode);
 
-	PROFILER_EXIT(context->priv->prof_rfx_encode_component);
+	PROFILER_EXIT(priv->prof_rfx_encode_component);
 }
 
-void rfx_encode_rgb(RFX_CONTEXT* context, const uint8* rgb_data, int width, int height, int rowstride,
+void rfx_encode_rgb(RFX_COMPOSE_CONTEXT* context, const uint8* rgb_data, int width, int height, int rowstride,
 	const uint32* y_quants, const uint32* cb_quants, const uint32* cr_quants,
 	STREAM* data_out, int* y_size, int* cb_size, int* cr_size)
 {
-	sint16* y_r_buffer = context->priv->y_r_buffer;
-	sint16* cb_g_buffer = context->priv->cb_g_buffer;
-	sint16* cr_b_buffer = context->priv->cr_b_buffer;
+	RFX_COMPOSE_CONTEXT_PRIV* priv = (RFX_COMPOSE_CONTEXT_PRIV*) context->priv;
+	sint16* y_r_buffer = priv->y_r_buffer;
+	sint16* cb_g_buffer = priv->cb_g_buffer;
+	sint16* cr_b_buffer = priv->cr_b_buffer;
 
-	PROFILER_ENTER(context->priv->prof_rfx_encode_rgb);
+	PROFILER_ENTER(priv->prof_rfx_encode_rgb);
 
-	PROFILER_ENTER(context->priv->prof_rfx_encode_format_rgb);
+	PROFILER_ENTER(priv->prof_rfx_encode_format_rgb);
 		rfx_encode_format_rgb(rgb_data, width, height, rowstride,
 			context->pixel_format, context->palette, y_r_buffer, cb_g_buffer, cr_b_buffer);
-	PROFILER_EXIT(context->priv->prof_rfx_encode_format_rgb);
+	PROFILER_EXIT(priv->prof_rfx_encode_format_rgb);
 
-	PROFILER_ENTER(context->priv->prof_rfx_encode_rgb_to_ycbcr);
-		context->encode_rgb_to_ycbcr(context->priv->y_r_buffer, context->priv->cb_g_buffer, context->priv->cr_b_buffer);
-	PROFILER_EXIT(context->priv->prof_rfx_encode_rgb_to_ycbcr);
+	PROFILER_ENTER(priv->prof_rfx_encode_rgb_to_ycbcr);
+		priv->encode_rgb_to_ycbcr(priv->y_r_buffer, priv->cb_g_buffer, priv->cr_b_buffer);
+	PROFILER_EXIT(priv->prof_rfx_encode_rgb_to_ycbcr);
 
 	/* Ensure the buffer is reasonably large enough */
 	stream_check_size(data_out, 4096);
-	rfx_encode_component(context, y_quants, context->priv->y_r_buffer,
+	rfx_encode_component(context, y_quants, priv->y_r_buffer,
 		stream_get_tail(data_out), stream_get_left(data_out), y_size);
 	stream_seek(data_out, *y_size);
 
 	stream_check_size(data_out, 4096);
-	rfx_encode_component(context, cb_quants, context->priv->cb_g_buffer,
+	rfx_encode_component(context, cb_quants, priv->cb_g_buffer,
 		stream_get_tail(data_out), stream_get_left(data_out), cb_size);
 	stream_seek(data_out, *cb_size);
 
 	stream_check_size(data_out, 4096);
-	rfx_encode_component(context, cr_quants, context->priv->cr_b_buffer,
+	rfx_encode_component(context, cr_quants, priv->cr_b_buffer,
 		stream_get_tail(data_out), stream_get_left(data_out), cr_size);
 	stream_seek(data_out, *cr_size);
 
-	PROFILER_EXIT(context->priv->prof_rfx_encode_rgb);
+	PROFILER_EXIT(priv->prof_rfx_encode_rgb);
 }

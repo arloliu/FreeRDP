@@ -24,11 +24,18 @@
 
 #if defined(__ARM_NEON__)
 
-void rfx_init_neon(RFX_CONTEXT * context);
+void rfx_init_decoder_neon(RFX_CONTEXT* context);
+void rfx_init_encoder_neon(RFX_COMPOSE_CONTEXT* context);
 
-#ifndef RFX_INIT_SIMD
+#ifndef RFX_INIT_DECODER_SIMD
  #if defined(WITH_NEON)
-  #define RFX_INIT_SIMD(_rfx_context) rfx_init_neon(_rfx_context)
+  #define RFX_INIT_DECODER_SIMD(_rfx_context) rfx_init_decoder_neon(_rfx_context)
+ #endif
+#endif
+
+#ifndef RFX_INIT_ENCODER_SIMD
+ #if defined(WITH_NEON)
+  #define RFX_INIT_ENCODER_SIMD(_rfx_context) rfx_init_encoder_neon(_rfx_context)
  #endif
 #endif
 

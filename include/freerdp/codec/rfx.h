@@ -19,10 +19,11 @@
 
 #ifndef __RFX_H
 #define __RFX_H
-
+#include "config.h"
 #include <freerdp/api.h>
 #include <freerdp/types.h>
 #include <freerdp/constants.h>
+#include <freerdp/platform.h>
 #include <freerdp/utils/stream.h>
 
 #ifdef __cplusplus
@@ -53,6 +54,14 @@ struct _RFX_TILE
 };
 typedef struct _RFX_TILE RFX_TILE;
 
+struct _RFX_CHANNELT
+{
+	uint8 channelId;
+	uint16 width;
+	uint16 height;
+};
+typedef struct _RFX_CHANNELT RFX_CHANNELT;
+
 struct _RFX_MESSAGE
 {
 	/**
@@ -70,21 +79,36 @@ struct _RFX_MESSAGE
 	 */
 	uint16 num_tiles;
 	RFX_TILE** tiles;
+
+	/** 
+	 * Destination Rectangle, filled by TS_SURFCMD_SET_SURF_BITS or 
+	 * TS_SURFCMD_STREAM_SURF_BITS command. All fields in this structure
+	 * need to be zero when decoder be used to decode bitmap cache v3
+	 */
+	 RECTANGLE_16 dst_rect;
 };
 typedef struct _RFX_MESSAGE RFX_MESSAGE;
 
-typedef struct _RFX_CONTEXT_PRIV RFX_CONTEXT_PRIV;
+/**
+ * Callback function prototypes for RemoteFX context 
+ */
+typedef void (*pRfxContextSetPixelFormat)(void* context, RDP_PIXEL_FORMAT pixel_format);
+typedef void (*pRfxContextSetCpuOpt)(void* context, uint32 cpu_opt);
+typedef void (*pRfxContextReset)(void* context);
 
-struct _RFX_CONTEXT
+typedef struct _RFX_COMPOSE_CONTEXT_PRIV RFX_COMPOSE_CONTEXT_PRIV;
+struct _RFX_COMPOSE_CONTEXT
 {
 	uint16 flags;
-	uint16 properties;
 	uint16 width;
 	uint16 height;
+	uint8 num_channels;
+	RFX_CHANNELT* channels;
 	RLGR_MODE mode;
+	uint16 properties;
 	uint32 version;
-	uint32 codec_id;
-	uint32 codec_version;
+	uint8 codec_id;
+	uint16 codec_version;
 	RDP_PIXEL_FORMAT pixel_format;
 	uint8 bits_per_pixel;
 
@@ -100,38 +124,64 @@ struct _RFX_CONTEXT
 	uint8 quant_idx_cb;
 	uint8 quant_idx_cr;
 
-	/* routines */
-	void (*decode_ycbcr_to_rgb)(sint16* y_r_buf, sint16* cb_g_buf, sint16* cr_b_buf);
-	void (*encode_rgb_to_ycbcr)(sint16* y_r_buf, sint16* cb_g_buf, sint16* cr_b_buf);
-	void (*quantization_decode)(sint16* buffer, const uint32* quantization_values);
-	void (*quantization_encode)(sint16* buffer, const uint32* quantization_values);
-	void (*dwt_2d_decode)(sint16* buffer, sint16* dwt_buffer);
-	void (*dwt_2d_encode)(sint16* buffer, sint16* dwt_buffer);
+	pRfxContextSetPixelFormat set_pixel_format;
+	pRfxContextSetCpuOpt set_cpu_opt;
+	pRfxContextReset reset;
+	/* private definitions for encoder */
+	void* priv;
+};
+typedef struct _RFX_COMPOSE_CONTEXT RFX_COMPOSE_CONTEXT;
 
-	/* private definitions */
-	RFX_CONTEXT_PRIV* priv;
+struct _RFX_CONTEXT
+{
+	uint16 flags;
+	uint16 width;
+	uint16 height;
+	uint8 num_channels;
+	RFX_CHANNELT* channels;
+	RLGR_MODE mode;
+	uint32 version;
+	uint8 codec_id;
+	uint16 codec_version;
+	RDP_PIXEL_FORMAT pixel_format;
+	uint8 bits_per_pixel;
+
+	/* temporary data within a frame */
+	uint8 num_quants;
+	uint32* quants;
+
+	pRfxContextSetPixelFormat set_pixel_format;
+	pRfxContextSetCpuOpt set_cpu_opt;
+	pRfxContextReset reset;
+
+	/* private definitions for decoder */
+	void* priv;
 };
 typedef struct _RFX_CONTEXT RFX_CONTEXT;
 
-FREERDP_API RFX_CONTEXT* rfx_context_new(void);
+/**
+ * Common entry points for all platforms
+ */
+FREERDP_API RFX_CONTEXT* rfx_context_new(void* info);
 FREERDP_API void rfx_context_free(RFX_CONTEXT* context);
-FREERDP_API void rfx_context_set_cpu_opt(RFX_CONTEXT* context, uint32 cpu_opt);
-FREERDP_API void rfx_context_set_pixel_format(RFX_CONTEXT* context, RDP_PIXEL_FORMAT pixel_format);
-FREERDP_API void rfx_context_reset(RFX_CONTEXT* context);
 
-FREERDP_API RFX_MESSAGE* rfx_process_message(RFX_CONTEXT* context, uint8* data, uint32 length);
-FREERDP_API uint16 rfx_message_get_tile_count(RFX_MESSAGE* message);
-FREERDP_API RFX_TILE* rfx_message_get_tile(RFX_MESSAGE* message, int index);
-FREERDP_API uint16 rfx_message_get_rect_count(RFX_MESSAGE* message);
-FREERDP_API RFX_RECT* rfx_message_get_rect(RFX_MESSAGE* message, int index);
+FREERDP_API RFX_MESSAGE* rfx_message_new(void);
 FREERDP_API void rfx_message_free(RFX_CONTEXT* context, RFX_MESSAGE* message);
 
-FREERDP_API void rfx_compose_message_header(RFX_CONTEXT* context, STREAM* s);
-FREERDP_API void rfx_compose_message(RFX_CONTEXT* context, STREAM* s,
+FREERDP_API RFX_COMPOSE_CONTEXT* rfx_compose_context_new(void);
+FREERDP_API void rfx_compose_context_free(RFX_COMPOSE_CONTEXT* context);
+
+FREERDP_API void rfx_compose_message_header(RFX_COMPOSE_CONTEXT* context, STREAM* s);
+FREERDP_API void rfx_compose_message(RFX_COMPOSE_CONTEXT* context, STREAM* s,
 	const RFX_RECT* rects, int num_rects, uint8* image_data, int width, int height, int rowstride);
+
+FREERDP_API RFX_MESSAGE* rfx_process_message(RFX_CONTEXT* context, uint8* data, uint32 length, RECTANGLE_16* dst_rect);
+
+#include PLATFORM_GLOBAL_HEADER_FILE(freerdp/codec/rfx, FREERDP_PLATFORM)
 
 #ifdef __cplusplus
 }
 #endif
+
 
 #endif /* __RFX_H */

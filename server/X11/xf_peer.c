@@ -262,12 +262,12 @@ xfInfo* xf_info_init()
 void xf_peer_context_new(freerdp_peer* client, xfPeerContext* context)
 {
 	context->info = xf_info_init();
-	context->rfx_context = rfx_context_new();
+	context->rfx_context = rfx_compose_context_new();
 	context->rfx_context->mode = RLGR3;
 	context->rfx_context->width = context->info->width;
 	context->rfx_context->height = context->info->height;
 
-	rfx_context_set_pixel_format(context->rfx_context, RDP_PIXEL_FORMAT_B8G8R8A8);
+	IFCALL(context->rfx_context->set_pixel_format, context->rfx_context, RDP_PIXEL_FORMAT_B8G8R8A8);
 
 	context->s = stream_new(65536);
 }
@@ -277,7 +277,7 @@ void xf_peer_context_free(freerdp_peer* client, xfPeerContext* context)
 	if (context)
 	{
 		stream_free(context->s);
-		rfx_context_free(context->rfx_context);
+		rfx_compose_context_free(context->rfx_context);
 	}
 }
 
@@ -581,7 +581,7 @@ boolean xf_peer_activate(freerdp_peer* client)
 {
 	xfPeerContext* xfp = (xfPeerContext*) client->context;
 
-	rfx_context_reset(xfp->rfx_context);
+	IFCALL(xfp->rfx_context->reset, xfp->rfx_context);
 	xfp->activated = true;
 
 	if (xf_pcap_file != NULL)

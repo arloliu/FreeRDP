@@ -945,109 +945,171 @@ static void xf_gdi_surface_update_frame(xfInfo* xfi, uint16 tx, uint16 ty, uint1
 	}
 }
 
+uint8* xf_gdi_surface_bitmap_flip(SURFACE_BITS_COMMAND* command, uint8* src_data, XImage* dst_image)
+{
+	int i;
+	uint32 src_pixel_size, dst_pixel_size;
+	uint32 src_stride, dst_stride;
+	uint8* top;
+	uint8* bottom;
+
+	if (!command || !dst_image || !dst_image->data || command->bpp != dst_image->bits_per_pixel)
+		return NULL;
+
+	src_pixel_size = (command->bpp + 7) / 8;
+	dst_pixel_size = (src_pixel_size + 7) / 8;
+	src_stride = command->width * src_pixel_size;
+	dst_stride = dst_image->bytes_per_line;
+	top = src_data;
+	bottom = (uint8*)(dst_image->data + command->destLeft * dst_pixel_size + (dst_stride * (command->destTop + command->height - 1)));
+
+	for (i = 0; i < command->height; i++)
+	{
+		memcpy(bottom, top, command->width * src_pixel_size);
+		top += src_stride;
+		bottom -= dst_stride;
+	}
+	return (uint8*)dst_image->data;
+}
+
+void xf_gdi_surface_rfx_process(rdpContext* context, SURFACE_BITS_COMMAND* command, void* pContext)
+{
+	int i;
+	int tx, ty;
+	xfInfo* xfi = ((xfContext*) context)->xfi;
+	RECTANGLE_16 dest_rect;
+	RFX_MESSAGE* message = NULL;
+	RFX_CONTEXT* rfx_context = (RFX_CONTEXT*) pContext;
+	XImage* image;
+
+	dest_rect.left = command->destLeft;
+	dest_rect.top = command->destTop;
+	dest_rect.right = command->destRight;
+	dest_rect.bottom = command->destBottom;
+
+	message = rfx_process_message(rfx_context, command->bitmapData, command->bitmapDataLength, &dest_rect);
+
+	XSetFunction(xfi->display, xfi->gc, GXcopy);
+	XSetFillStyle(xfi->display, xfi->gc, FillSolid);
+
+	XSetClipRectangles(xfi->display, xfi->gc,
+			command->destLeft, command->destTop,
+			(XRectangle*) message->rects, message->num_rects, YXBanded);
+
+	/* Draw the tiles to primary surface, each is 64x64. */
+	for (i = 0; i < message->num_tiles; i++)
+	{
+		image = XCreateImage(xfi->display, xfi->visual, 24, ZPixmap, 0,
+			(char*) message->tiles[i]->data, 64, 64, 32, 0);
+
+		tx = message->tiles[i]->x + command->destLeft;
+		ty = message->tiles[i]->y + command->destTop;
+
+		XPutImage(xfi->display, xfi->primary, xfi->gc, image, 0, 0, tx, ty, 64, 64);
+		XFree(image);
+	}
+
+	/* Copy the updated region from backstore to the window. */
+	for (i = 0; i < message->num_rects; i++)
+	{
+		tx = message->rects[i].x + command->destLeft;
+		ty = message->rects[i].y + command->destTop;
+
+		xf_gdi_surface_update_frame(xfi, tx, ty, message->rects[i].width, message->rects[i].height);
+	}
+
+	XSetClipMask(xfi->display, xfi->gc, None);
+
+	rfx_message_free(rfx_context, message);	
+}
+
+void xf_gdi_surface_nsc_process(rdpContext* context, SURFACE_BITS_COMMAND* command, void* pContext)
+{
+	xfInfo* xfi = ((xfContext*) context)->xfi;
+	NSC_CONTEXT* nsc_context = (NSC_CONTEXT*) pContext;
+	XImage* image;
+
+	nsc_process_message(nsc_context, command->bpp, command->width, command->height,
+		command->bitmapData, command->bitmapDataLength);
+
+
+	XSetFunction(xfi->display, xfi->gc, GXcopy);
+	XSetFillStyle(xfi->display, xfi->gc, FillSolid);
+
+	xfi->bmp_codec_nsc = (uint8*) xrealloc(xfi->bmp_codec_nsc,
+			command->width * command->height * 4);
+
+	freerdp_image_flip(nsc_context->bmpdata, xfi->bmp_codec_nsc,
+			command->width, command->height, 32);
+
+	image = XCreateImage(xfi->display, xfi->visual, 24, ZPixmap, 0,
+		(char*) xfi->bmp_codec_nsc, command->width, command->height, 32, 0);
+
+	XPutImage(xfi->display, xfi->primary, xfi->gc, image, 0, 0,
+			command->destLeft, command->destTop,
+			command->width, command->height);
+	XFree(image);
+
+	xf_gdi_surface_update_frame(xfi,
+		command->destLeft, command->destTop,
+		command->width, command->height);
+
+	XSetClipMask(xfi->display, xfi->gc, None);
+}
+
+void xf_gdi_surface_bitmap_process(rdpContext* context, SURFACE_BITS_COMMAND* command, void* pContext)
+{
+	xfInfo* xfi = ((xfContext*) context)->xfi;
+	XImage* image;
+
+	XSetFunction(xfi->display, xfi->gc, GXcopy);
+	XSetFillStyle(xfi->display, xfi->gc, FillSolid);
+
+	/* Validate that the data received is large enough */
+	if( command->width * command->height * command->bpp / 8 <= command->bitmapDataLength )
+	{
+		xfi->bmp_codec_none = (uint8*) xrealloc(xfi->bmp_codec_none,
+				command->width * command->height * 4);
+
+		freerdp_image_flip(command->bitmapData, xfi->bmp_codec_none,
+				command->width, command->height, 32);
+
+		image = XCreateImage(xfi->display, xfi->visual, 24, ZPixmap, 0,
+			(char*) xfi->bmp_codec_none, command->width, command->height, 32, 0);
+
+		XPutImage(xfi->display, xfi->primary, xfi->gc, image, 0, 0,
+				command->destLeft, command->destTop,
+				command->width, command->height);
+		XFree(image);
+
+		xf_gdi_surface_update_frame(xfi,
+			command->destLeft, command->destTop,
+			command->width, command->height);
+
+		XSetClipMask(xfi->display, xfi->gc, None);
+	} else {
+		printf("Invalid bitmap size - data is %d bytes for %dx%d\n update", command->bitmapDataLength, command->width, command->height);
+	}
+}
+
 void xf_gdi_surface_bits(rdpContext* context, SURFACE_BITS_COMMAND* surface_bits_command)
 {
-	int i, tx, ty;
-	XImage* image;
-	RFX_MESSAGE* message;
 	xfInfo* xfi = ((xfContext*) context)->xfi;
+	rdpUpdate* update = context->instance->update;
 	RFX_CONTEXT* rfx_context = (RFX_CONTEXT*) xfi->rfx_context;
 	NSC_CONTEXT* nsc_context = (NSC_CONTEXT*) xfi->nsc_context;
 
 	if (surface_bits_command->codecID == CODEC_ID_REMOTEFX)
 	{
-		message = rfx_process_message(rfx_context,
-				surface_bits_command->bitmapData, surface_bits_command->bitmapDataLength);
-
-		XSetFunction(xfi->display, xfi->gc, GXcopy);
-		XSetFillStyle(xfi->display, xfi->gc, FillSolid);
-
-		XSetClipRectangles(xfi->display, xfi->gc,
-				surface_bits_command->destLeft, surface_bits_command->destTop,
-				(XRectangle*) message->rects, message->num_rects, YXBanded);
-
-		/* Draw the tiles to primary surface, each is 64x64. */
-		for (i = 0; i < message->num_tiles; i++)
-		{
-			image = XCreateImage(xfi->display, xfi->visual, 24, ZPixmap, 0,
-				(char*) message->tiles[i]->data, 64, 64, 32, 0);
-
-			tx = message->tiles[i]->x + surface_bits_command->destLeft;
-			ty = message->tiles[i]->y + surface_bits_command->destTop;
-
-			XPutImage(xfi->display, xfi->primary, xfi->gc, image, 0, 0, tx, ty, 64, 64);
-			XFree(image);
-		}
-
-		/* Copy the updated region from backstore to the window. */
-		for (i = 0; i < message->num_rects; i++)
-		{
-			tx = message->rects[i].x + surface_bits_command->destLeft;
-			ty = message->rects[i].y + surface_bits_command->destTop;
-
-			xf_gdi_surface_update_frame(xfi, tx, ty, message->rects[i].width, message->rects[i].height);
-		}
-
-		XSetClipMask(xfi->display, xfi->gc, None);
-		rfx_message_free(rfx_context, message);
+		IFCALL(update->SurfaceRfxProcess, context, surface_bits_command, rfx_context);
 	}
 	else if (surface_bits_command->codecID == CODEC_ID_NSCODEC)
 	{
-		nsc_process_message(nsc_context, surface_bits_command->bpp, surface_bits_command->width, surface_bits_command->height,
-			surface_bits_command->bitmapData, surface_bits_command->bitmapDataLength);
-		XSetFunction(xfi->display, xfi->gc, GXcopy);
-		XSetFillStyle(xfi->display, xfi->gc, FillSolid);
-
-		xfi->bmp_codec_nsc = (uint8*) xrealloc(xfi->bmp_codec_nsc,
-				surface_bits_command->width * surface_bits_command->height * 4);
-
-		freerdp_image_flip(nsc_context->bmpdata, xfi->bmp_codec_nsc,
-				surface_bits_command->width, surface_bits_command->height, 32);
-
-		image = XCreateImage(xfi->display, xfi->visual, 24, ZPixmap, 0,
-			(char*) xfi->bmp_codec_nsc, surface_bits_command->width, surface_bits_command->height, 32, 0);
-
-		XPutImage(xfi->display, xfi->primary, xfi->gc, image, 0, 0,
-				surface_bits_command->destLeft, surface_bits_command->destTop,
-				surface_bits_command->width, surface_bits_command->height);
-		XFree(image);
-
-		xf_gdi_surface_update_frame(xfi,
-			surface_bits_command->destLeft, surface_bits_command->destTop,
-			surface_bits_command->width, surface_bits_command->height);
-
-		XSetClipMask(xfi->display, xfi->gc, None);
+		IFCALL(update->SurfaceNscProcess, context, surface_bits_command, nsc_context);
 	}
 	else if (surface_bits_command->codecID == CODEC_ID_NONE)
 	{
-		XSetFunction(xfi->display, xfi->gc, GXcopy);
-		XSetFillStyle(xfi->display, xfi->gc, FillSolid);
-
-		/* Validate that the data received is large enough */
-		if( surface_bits_command->width * surface_bits_command->height * surface_bits_command->bpp / 8 <= surface_bits_command->bitmapDataLength )
-		{
-			xfi->bmp_codec_none = (uint8*) xrealloc(xfi->bmp_codec_none,
-					surface_bits_command->width * surface_bits_command->height * 4);
-
-			freerdp_image_flip(surface_bits_command->bitmapData, xfi->bmp_codec_none,
-					surface_bits_command->width, surface_bits_command->height, 32);
-
-			image = XCreateImage(xfi->display, xfi->visual, 24, ZPixmap, 0,
-				(char*) xfi->bmp_codec_none, surface_bits_command->width, surface_bits_command->height, 32, 0);
-
-			XPutImage(xfi->display, xfi->primary, xfi->gc, image, 0, 0,
-					surface_bits_command->destLeft, surface_bits_command->destTop,
-					surface_bits_command->width, surface_bits_command->height);
-			XFree(image);
-
-			xf_gdi_surface_update_frame(xfi,
-				surface_bits_command->destLeft, surface_bits_command->destTop,
-				surface_bits_command->width, surface_bits_command->height);
-
-			XSetClipMask(xfi->display, xfi->gc, None);
-		} else {
-			printf("Invalid bitmap size - data is %d bytes for %dx%d\n update", surface_bits_command->bitmapDataLength, surface_bits_command->width, surface_bits_command->height);
-		}
+		IFCALL(update->SurfaceBitmapProcess, context, surface_bits_command, NULL);
 	}
 	else
 	{
@@ -1087,5 +1149,11 @@ void xf_gdi_register_update_callbacks(rdpUpdate* update)
 
 	update->SurfaceBits = xf_gdi_surface_bits;
 	update->SurfaceFrameMarker = xf_gdi_surface_frame_marker;
+	update->SurfaceRfxProcess = xf_gdi_surface_rfx_process;
+	update->SurfaceNscProcess = xf_gdi_surface_nsc_process;
+	update->SurfaceBitmapProcess = xf_gdi_surface_bitmap_process;
+	
+	/* Register platform specific callbacks */
+	xf_platform_register_gdi_update_callbacks(update);
 }
 

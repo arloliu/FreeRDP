@@ -1,8 +1,8 @@
 /**
- * FreeRDP: A Remote Desktop Protocol client.
- * RemoteFX Codec Library
+ * FreeRDP: A Remote Desktop Protocol Client
+ * Default platform abstration layer
  *
- * Copyright 2011 Vic Lee
+ * Copyright 2012 Arlo Liu <arlo.liu@atrustcorp.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,21 +16,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef __XF_PLATFORM_DEFAULT_H
+#define __XF_PLATFORM_DEFAULT_H
+#include "xf_gdi.h"
+#include "xf_graphics.h"
 
-#ifndef __RFX_TYPES_H
-#define __RFX_TYPES_H
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include <freerdp/utils/debug.h>
-#include <freerdp/utils/profiler.h>
-
-#ifdef WITH_DEBUG_RFX
-#define DEBUG_RFX(fmt, ...) DEBUG_CLASS(RFX, fmt, ## __VA_ARGS__)
-#else
-#define DEBUG_RFX(fmt, ...) DEBUG_NULL(fmt, ## __VA_ARGS__)
-#endif
-
-#endif /* __RFX_TYPES_H */
+#endif /* __XF_PLATFORM_DEFAULT_H */

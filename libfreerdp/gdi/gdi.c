@@ -708,8 +708,14 @@ void gdi_surface_bits(rdpContext* context, SURFACE_BITS_COMMAND* surface_bits_co
 
 	if (surface_bits_command->codecID == CODEC_ID_REMOTEFX)
 	{
+		RECTANGLE_16 dest_rect;
+		dest_rect.left = surface_bits_command->destLeft;
+		dest_rect.top = surface_bits_command->destTop;
+		dest_rect.right = surface_bits_command->destRight;
+		dest_rect.bottom = surface_bits_command->destBottom;
+
 		message = rfx_process_message(rfx_context,
-				surface_bits_command->bitmapData, surface_bits_command->bitmapDataLength);
+				surface_bits_command->bitmapData, surface_bits_command->bitmapDataLength, &dest_rect);
 
 		DEBUG_GDI("num_rects %d num_tiles %d", message->num_rects, message->num_tiles);
 
@@ -961,7 +967,7 @@ int gdi_init(freerdp* instance, uint32 flags, uint8* buffer)
 
 	gdi_register_graphics(instance->context->graphics);
 
-	gdi->rfx_context = rfx_context_new();
+	gdi->rfx_context = rfx_context_new(NULL);
 	gdi->nsc_context = nsc_context_new();
 
 	return 0;

@@ -17,27 +17,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# common source files
 set(FREERDP_CODEC_SRCS
 	bitmap.c
 	color.c
 	rfx_bitstream.h
 	rfx_constants.h
-	rfx_decode.c
-	rfx_decode.h
-	rfx_differential.c
-	rfx_differential.h
+	rfx_types.h
+	rfx_utils.c
+	rfx_utils.h
 	rfx_dwt.c
 	rfx_dwt.h
-	rfx_encode.c
-	rfx_encode.h
-	rfx_pool.c
-	rfx_pool.h
+	rfx_differential.c
+	rfx_differential.h
 	rfx_quantization.c
 	rfx_quantization.h
 	rfx_rlgr.c
 	rfx_rlgr.h
-	rfx_types.h
-	rfx.c
+	rfx_encode.c
+	rfx_encode.h
+	rfx_compose.c
+	rfx_compose.h
 	nsc.c
 	nsc_encode.c
 	nsc_encode.h
@@ -45,6 +45,14 @@ set(FREERDP_CODEC_SRCS
 	mppc_dec.c
 	mppc_enc.c
 	jpeg.c)
+
+set(FREERDP_CODEC_PLATFORM_DEFAULT_SRCS
+	rfx_pool.c
+	rfx_pool.h
+	rfx_decode.c
+	rfx_decode.h
+	rfx_platform_default.c
+	rfx_platform_default.h)
 
 set(FREERDP_CODEC_SSE2_SRCS
 	rfx_sse2.c
@@ -56,21 +64,29 @@ set(FREERDP_CODEC_NEON_SRCS
 	rfx_neon.c
 	rfx_neon.h)
 
-if(WITH_SSE2)
-	set(FREERDP_CODEC_SRCS ${FREERDP_CODEC_SRCS} ${FREERDP_CODEC_SSE2_SRCS})
+# Default platform
+if(FREERDP_PLATFORM STREQUAL "default")
+	set(FREERDP_CODEC_SRCS ${FREERDP_CODEC_SRCS} ${FREERDP_CODEC_PLATFORM_DEFAULT_SRCS})
+	if(WITH_SSE2)
+		set(FREERDP_CODEC_SRCS ${FREERDP_CODEC_SRCS} ${FREERDP_CODEC_SSE2_SRCS})
 
-	if(CMAKE_COMPILER_IS_GNUCC)
-		set_property(SOURCE rfx_sse2.c nsc_sse2.c PROPERTY COMPILE_FLAGS "-msse2")
+		if(CMAKE_COMPILER_IS_GNUCC)
+			set_property(SOURCE rfx_sse2.c nsc_sse2.c PROPERTY COMPILE_FLAGS "-msse2")
+		endif()
+
+		if(MSVC)
+			set_property(SOURCE rfx_sse2.c nsc_sse2.c PROPERTY COMPILE_FLAGS "/arch:SSE2")
+		endif()
 	endif()
 
-	if(MSVC)
-		set_property(SOURCE rfx_sse2.c nsc_sse2.c PROPERTY COMPILE_FLAGS "/arch:SSE2")
+	if(WITH_NEON)
+		set(FREERDP_CODEC_SRCS ${FREERDP_CODEC_SRCS} ${FREERDP_CODEC_NEON_SRCS})
+		set_property(SOURCE rfx_neon.c PROPERTY COMPILE_FLAGS "-mfpu=neon -mfloat-abi=softfp")
 	endif()
 endif()
 
-if(WITH_NEON)
-	set(FREERDP_CODEC_SRCS ${FREERDP_CODEC_SRCS} ${FREERDP_CODEC_NEON_SRCS})
-	set_property(SOURCE rfx_neon.c PROPERTY COMPILE_FLAGS "-mfpu=neon -mfloat-abi=softfp")
+if(FREERDP_PLATFORM STREQUAL "cvt")
+	set(FREERDP_CODEC_SRCS ${FREERDP_CODEC_SRCS} rfx_platform_cvt.c rfx_platform_cvt.h)
 endif()
 
 if(WITH_JPEG)

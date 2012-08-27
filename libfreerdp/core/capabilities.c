@@ -1484,8 +1484,6 @@ void rdp_write_rfx_client_capability_container(STREAM* s, rdpSettings* settings)
 
 	icap_len = icap_num * 8;
 
-	printf("rfx_mix_mode=%d, icap_num=%d, entropy=%d\n", settings->rfx_mix_mode, icap_num, icap_entropy);
-
 	captureFlags = (!settings->rfx_mix_mode || settings->dump_rfx) ? 0 : CARDP_CAPS_CAPTURE_NON_CAC;
 	codecMode = settings->rfx_codec_mode;
 

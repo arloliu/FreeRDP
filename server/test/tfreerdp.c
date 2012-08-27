@@ -88,11 +88,11 @@ typedef struct test_peer_context testPeerContext;
 
 void test_peer_context_new(freerdp_peer* client, testPeerContext* context)
 {
-	context->rfx_context = rfx_context_new();
+	context->rfx_context = rfx_context_new(NULL);
 	context->rfx_context->mode = RLGR3;
 	context->rfx_context->width = client->settings->width;
 	context->rfx_context->height = client->settings->height;
-	rfx_context_set_pixel_format(context->rfx_context, RDP_PIXEL_FORMAT_R8G8B8);
+	IFCALL(context->rfx_context->set_pixel_format, context->rfx_context, RDP_PIXEL_FORMAT_R8G8B8);
 
 	context->nsc_context = nsc_context_new();
 	nsc_context_set_pixel_format(context->nsc_context, RDP_PIXEL_FORMAT_R8G8B8);
@@ -562,7 +562,7 @@ boolean tf_peer_activate(freerdp_peer* client)
 {
 	testPeerContext* context = (testPeerContext*) client->context;
 
-	rfx_context_reset(context->rfx_context);
+	IFCALL(context->rfx_context->reset, context->rfx_context);
 	context->activated = true;
 
 	if (test_pcap_file != NULL)

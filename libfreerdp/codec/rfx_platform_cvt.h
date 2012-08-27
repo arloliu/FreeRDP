@@ -1,8 +1,9 @@
 /**
- * FreeRDP: A Remote Desktop Protocol client.
- * RemoteFX Codec Library
+ * FreeRDP: A Remote Desktop Protocol Client
+ * Cloudvue CVT8311 ASIC RemoteFX Codec
  *
- * Copyright 2011 Vic Lee
+ * Copyright 2012 Cloudvue Technologies Corp.
+ * Copyright 2012 Arlo Liu <arlo.liu@atrustcorp.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,20 +18,10 @@
  * limitations under the License.
  */
 
-#ifndef __RFX_TYPES_H
-#define __RFX_TYPES_H
+#ifndef __RFX_PLATFORM_CVT_H
+#define __RFX_PLATFORM_CVT_H
+#include <freerdp/types.h>
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#define RFX_CVT_MAX_DECODE_TILES 160
 
-#include <freerdp/utils/debug.h>
-#include <freerdp/utils/profiler.h>
-
-#ifdef WITH_DEBUG_RFX
-#define DEBUG_RFX(fmt, ...) DEBUG_CLASS(RFX, fmt, ## __VA_ARGS__)
-#else
-#define DEBUG_RFX(fmt, ...) DEBUG_NULL(fmt, ## __VA_ARGS__)
-#endif
-
-#endif /* __RFX_TYPES_H */
+#endif /* __RFX_PLATFORM_CVT_H */

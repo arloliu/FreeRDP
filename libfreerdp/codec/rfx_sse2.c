@@ -31,6 +31,10 @@
 
 #include "rfx_types.h"
 #include "rfx_sse2.h"
+#include "rfx_compose.h"
+
+#include <freerdp/platform.h>
+#include PLATFORM_LOCAL_HEADER_FILE(rfx_platform, FREERDP_PLATFORM)
 
 #ifdef _MSC_VER
 #define	__attribute__(...)
@@ -654,21 +658,29 @@ static void rfx_dwt_2d_encode_sse2(sint16* buffer, sint16* dwt_buffer)
 	rfx_dwt_2d_encode_block_sse2(buffer + 3840, dwt_buffer, 8);
 }
 
-void rfx_init_sse2(RFX_CONTEXT* context)
+void rfx_init_decoder_sse2(RFX_CONTEXT* context)
 {
+	RFX_CONTEXT_DEFAULT_PRIV* priv = (RFX_CONTEXT_DEFAULT_PRIV*)context->priv;
 	DEBUG_RFX("Using SSE2 optimizations");
 
-	IF_PROFILER(context->priv->prof_rfx_decode_ycbcr_to_rgb->name = "rfx_decode_ycbcr_to_rgb_sse2");
-	IF_PROFILER(context->priv->prof_rfx_encode_rgb_to_ycbcr->name = "rfx_encode_rgb_to_ycbcr_sse2");
-	IF_PROFILER(context->priv->prof_rfx_quantization_decode->name = "rfx_quantization_decode_sse2");
-	IF_PROFILER(context->priv->prof_rfx_quantization_encode->name = "rfx_quantization_encode_sse2");
-	IF_PROFILER(context->priv->prof_rfx_dwt_2d_decode->name = "rfx_dwt_2d_decode_sse2");
-	IF_PROFILER(context->priv->prof_rfx_dwt_2d_encode->name = "rfx_dwt_2d_encode_sse2");
+	IF_PROFILER(priv->prof_rfx_decode_ycbcr_to_rgb->name = "rfx_decode_ycbcr_to_rgb_sse2");
+	IF_PROFILER(priv->prof_rfx_quantization_decode->name = "rfx_quantization_decode_sse2");
+	IF_PROFILER(priv->prof_rfx_dwt_2d_decode->name = "rfx_dwt_2d_decode_sse2");
 
-	context->decode_ycbcr_to_rgb = rfx_decode_ycbcr_to_rgb_sse2;
-	context->encode_rgb_to_ycbcr = rfx_encode_rgb_to_ycbcr_sse2;
-	context->quantization_decode = rfx_quantization_decode_sse2;
-	context->quantization_encode = rfx_quantization_encode_sse2;
-	context->dwt_2d_decode = rfx_dwt_2d_decode_sse2;
-	context->dwt_2d_encode = rfx_dwt_2d_encode_sse2;
+	priv->decode_ycbcr_to_rgb = rfx_decode_ycbcr_to_rgb_sse2;
+	priv->quantization_decode = rfx_quantization_decode_sse2;
+	priv->dwt_2d_decode = rfx_dwt_2d_decode_sse2;
+}
+void rfx_init_encoder_sse2(RFX_COMPOSE_CONTEXT* context)
+{
+	RFX_COMPOSE_CONTEXT_PRIV* priv = (RFX_COMPOSE_CONTEXT_PRIV*)context->priv;
+	DEBUG_RFX("Using SSE2 optimizations");
+
+	IF_PROFILER(priv->prof_rfx_encode_rgb_to_ycbcr->name = "rfx_encode_rgb_to_ycbcr_sse2");
+	IF_PROFILER(priv->prof_rfx_quantization_encode->name = "rfx_quantization_encode_sse2");
+	IF_PROFILER(priv->prof_rfx_dwt_2d_encode->name = "rfx_dwt_2d_encode_sse2");
+
+	priv->encode_rgb_to_ycbcr = rfx_encode_rgb_to_ycbcr_sse2;
+	priv->quantization_encode = rfx_quantization_encode_sse2;
+	priv->dwt_2d_encode = rfx_dwt_2d_encode_sse2;
 }

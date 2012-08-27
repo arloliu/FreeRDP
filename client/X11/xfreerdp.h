@@ -31,11 +31,57 @@
 #include <freerdp/gdi/region.h>
 #include <freerdp/rail/rail.h>
 #include <freerdp/cache/cache.h>
+#include <freerdp/platform.h>
 
 typedef struct xf_info xfInfo;
 
 #include "xf_window.h"
 #include "xf_monitor.h"
+
+/**
+ * Platform specific implementations header file
+ */
+#include PLATFORM_LOCAL_HEADER_FILE(xf_platform, FREERDP_PLATFORM)
+
+/**
+ * Initialize Platform specific implementation 
+ */
+boolean xf_platform_init(xfInfo* xfi);
+
+/**
+ * Un-initilize Platform specific implementation
+ */
+void xf_platform_uninit(xfInfo* xfi);
+
+/**
+ * Setup capabilities of platform
+ */
+void xf_platform_setup_capabilities(xfInfo* xfi);
+
+/**
+ * Parse command line parameters of specific platform 
+ */
+int xf_platform_process_args(rdpSettings* settings, const char* opt, const char* val, void* user_data);
+
+/**
+ * Print command line help of specific platform 
+ */
+void xf_platform_print_args(void);
+
+/** 
+ * Reigster platform specific system callbacks
+ */
+void xf_platform_register_system_callbacks(xfInfo* xfi);
+
+/** 
+ * Reigster platform specific GDI update callbacks
+ */
+void xf_platform_register_gdi_update_callbacks(rdpUpdate* update);
+
+/**
+ * Reigster platform specific bitmap graphic callbacks
+ */
+void xf_platform_register_graphics_bitmap_callbacks(rdpBitmap* bitmap);
 
 struct xf_WorkArea
 {
@@ -75,6 +121,17 @@ struct xf_context
 	rdpSettings* settings;
 };
 typedef struct xf_context xfContext;
+typedef boolean (*pMonitorDetect)(xfInfo* xfi, rdpSettings* settings);
+typedef void (*pCodecContextCreate)(xfInfo* xfi);
+typedef void (*pCodecContextFree)(xfInfo* xfi);
+typedef boolean (*pPrimarySurfaceCreate)(xfInfo* xfi);
+typedef void (*pPrimarySurfaceFree)(xfInfo* xfi);
+typedef boolean (*pPrimarySurfaceLock)(xfInfo* xfi);
+typedef boolean (*pPrimarySurfaceUnlock)(xfInfo* xfi);
+typedef boolean (*pUpdateWindowAreaLock)(xfInfo* xfi);
+typedef boolean (*pUpdateWindowAreaUnlock)(xfInfo* xfi);
+typedef boolean (*pAsyncDrawingLock)(xfInfo* xfi);
+typedef boolean (*pAsyncDrawingUnlock)(xfInfo* xfi);
 
 struct xf_info
 {
@@ -166,9 +223,58 @@ struct xf_info
 	Atom WM_STATE;
 	Atom WM_PROTOCOLS;
 	Atom WM_DELETE_WINDOW;
+
+	/*
+	 * Callback for detecting monitor information
+	 */
+	pMonitorDetect MonitorDetect;
+	/*
+	 * Callback for creating codec contexts
+	 */
+	pCodecContextCreate CodecContextCreate;
+	/*
+	 * Callback for freeing codec contexts
+	 */
+	pCodecContextFree CodecContextFree;
+	/*
+	 * Callback for creating new primary surface 
+	 * It might be regular pixmap, shared pixmap, or surface which are
+	 * capable of transfering via DMA 
+	 */
+	pPrimarySurfaceCreate PrimarySurfaceCreate;
+	/*
+	 * Callback for freeing primary surface 
+	 */
+	pPrimarySurfaceFree PrimarySurfaceFree;
+	/**
+	 * Callback for locking primary surface
+	 * It must be well implemented for multithreading/async. scenario 
+	 */
+	pPrimarySurfaceLock PrimarySurfaceLock;
+	/*
+	 * Callback for unlocking primary surface 
+	 */
+	pPrimarySurfaceUnlock PrimarySurfaceUnlock;
+	/*
+	 * Callback for locking surface before updateing window area
+	 * It must be well implemented for multithreading/async. scenario 
+	 */
+	pUpdateWindowAreaLock UpdateWindowAreaLock;
+	/* Callback for unlocking surface after updateing window area */
+	pUpdateWindowAreaUnlock UpdateWindowAreaUnlock;
+	/*
+	 * Callback for locking surface before until async. drawing complete
+	 * It must be well implemented if using async drawing mechanism like MIT-SHM
+	 */
+	pAsyncDrawingLock AsyncDrawingLock;
+	/* Callback for unlocking surface after async. drawing complete */
+	pAsyncDrawingUnlock AsyncDrawingUnlock;
+	/* 
+	 * Platfrom private data
+	 */
+	void* priv;
 };
 
-void xf_create_window(xfInfo* xfi);
 void xf_toggle_fullscreen(xfInfo* xfi);
 boolean xf_post_connect(freerdp* instance);
 

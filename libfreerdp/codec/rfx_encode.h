@@ -24,7 +24,7 @@
 
 void rfx_encode_rgb_to_ycbcr(sint16* y_r_buf, sint16* cb_g_buf, sint16* cr_b_buf);
 
-void rfx_encode_rgb(RFX_CONTEXT* context, const uint8* rgb_data, int width, int height, int rowstride,
+void rfx_encode_rgb(RFX_COMPOSE_CONTEXT* context, const uint8* rgb_data, int width, int height, int rowstride,
 	const uint32* y_quants, const uint32* cb_quants, const uint32* cr_quants,
 	STREAM* data_out, int* y_size, int* cb_size, int* cr_size);
 

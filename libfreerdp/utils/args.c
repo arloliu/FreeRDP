@@ -64,6 +64,76 @@ void freerdp_parse_hostname(rdpSettings* settings, char* hostname)
 	}
 }
 
+void freerdp_print_args_help(const char* program)
+{
+	printf("\n"
+		"FreeRDP - A Free Remote Desktop Protocol Client\n"
+		"See http://www.freerdp.com for more information\n"
+		"\n"
+		"Usage: %s [options] server:port\n"
+		"  -0: connect to console session\n"
+		"  -a: set color depth in bit, default is 16\n"
+		"  -c: initial working directory\n"
+		"  -D: hide window decorations\n"
+		"  -T: window title\n"
+		"  -d: domain\n"
+		"  -f: fullscreen mode\n"
+		"  -g: set geometry, using format WxH or X%% or 'workarea', default is 1024x768\n"
+		"  -h: print this help\n"
+		"  -k: set keyboard layout ID\n"
+		"  -K: do not interfere with window manager bindings\n"
+		"  -n: hostname\n"
+		"  -o: console audio\n"
+		"  -p: password\n"
+		"  -s: set startup-shell\n"
+		"  -t: alternative port number, default is 3389\n"
+		"  -u: username\n"
+		"  -x: performance flags (m[odem], b[roadband] or l[an])\n"
+		"  -X: embed into another window with a given XID.\n"
+		"  -z: enable compression\n"
+		"  --app: RemoteApp connection. This implies -g workarea\n"
+		"  --ext: load an extension\n"
+		"  --no-auth: disable authentication\n"
+		"  --authonly: authentication only, no UI\n"
+		"  --from-stdin: unspecified username, password, domain and hostname params are prompted\n"
+		"  --no-fastpath: disable fast-path\n"
+		"  --no-motion: don't send mouse motion events\n"
+		"  --gdi: graphics rendering (hw, sw)\n"
+		"  --no-osb: disable offscreen bitmaps\n"
+		"  --no-bmp-cache: disable bitmap cache\n"
+		"  --bcv3: codec for bitmap cache v3 (rfx, nsc, jpeg)\n"
+		"  --plugin: load a virtual channel plugin\n"
+		"  --rfx: enable RemoteFX\n"
+		"  --rfx-mode: RemoteFX operational flags (v[ideo], i[mage]), default is video\n"
+		"  --rfx-only: don't mix other codecs with RemoteFX\n"
+		"  --rfx-entropy: Entropy flags (1:RLGR1, 2:RLGR2, 3:RLGR1 & RLGR3), default is 3\n"
+		"  --frame-ack: number of frames pending to be acknowledged, default is 2 (disable with 0)\n"
+		"  --nsc: enable NSCodec (experimental)\n"
+#ifdef WITH_JPEG
+		"  --jpeg: enable jpeg codec, uses 75 quality\n"
+		"  --jpegex: enable jpeg and set quality(1..99)\n"
+#endif
+		"  --disable-wallpaper: disables wallpaper\n"
+		"  --composition: enable desktop composition\n"
+		"  --disable-full-window-drag: disables full window drag\n"
+		"  --disable-menu-animations: disables menu animations\n"
+		"  --disable-theming: disables theming\n"
+		"  --no-nego: disable negotiation of security layer and enforce highest enabled security protocol\n"
+		"  --no-rdp: disable Standard RDP encryption\n"
+		"  --no-tls: disable TLS encryption\n"
+		"  --no-nla: disable network level authentication\n"
+		"  --ntlm: force NTLM authentication protocol version (1 or 2)\n"
+		"  --ignore-certificate: ignore verification of logon certificate\n"
+		"  --certificate-name: use this name for the logon certificate, instead of the server name\n"
+		"  --sec: force protocol security (rdp, tls or nla)\n"
+		"  --tsg: Terminal Server Gateway (<username> <password> <hostname>)\n"
+		"  --no-salted-checksum: disable salted checksums with Standard RDP encryption\n"
+		"  --pcid: preconnection id\n"
+		"  --pcb: preconnection blob\n"
+		"  --version: print version information\n"
+		"\n", program);
+}
+
 /**
  * Parse command-line arguments and update rdpSettings members accordingly.
  * @param settings pointer to rdpSettings struct to be updated.
@@ -90,73 +160,6 @@ int freerdp_parse_args(rdpSettings* settings, int argc, char** argv,
 	{
 		if ((strcmp("-h", argv[index]) == 0 ) || (strcmp("--help", argv[index]) == 0 ))
 		{
-			printf("\n"
-				"FreeRDP - A Free Remote Desktop Protocol Client\n"
-				"See http://www.freerdp.com for more information\n"
-				"\n"
-				"Usage: %s [options] server:port\n"
-				"  -0: connect to console session\n"
-				"  -a: set color depth in bit, default is 16\n"
-				"  -c: initial working directory\n"
-				"  -D: hide window decorations\n"
-				"  -T: window title\n"
-				"  -d: domain\n"
-				"  -f: fullscreen mode\n"
-				"  -g: set geometry, using format WxH or X%% or 'workarea', default is 1024x768\n"
-				"  -h: print this help\n"
-				"  -k: set keyboard layout ID\n"
-				"  -K: do not interfere with window manager bindings\n"
-				"  -n: hostname\n"
-				"  -o: console audio\n"
-				"  -p: password\n"
-				"  -s: set startup-shell\n"
-				"  -t: alternative port number, default is 3389\n"
-				"  -u: username\n"
-				"  -x: performance flags (m[odem], b[roadband] or l[an])\n"
-				"  -X: embed into another window with a given XID.\n"
-				"  -z: enable compression\n"
-				"  --app: RemoteApp connection. This implies -g workarea\n"
-				"  --ext: load an extension\n"
-				"  --no-auth: disable authentication\n"
-				"  --authonly: authentication only, no UI\n"
-				"  --from-stdin: unspecified username, password, domain and hostname params are prompted\n"
-				"  --no-fastpath: disable fast-path\n"
-				"  --no-motion: don't send mouse motion events\n"
-				"  --gdi: graphics rendering (hw, sw)\n"
-				"  --no-osb: disable offscreen bitmaps\n"
-				"  --no-bmp-cache: disable bitmap cache\n"
-				"  --bcv3: codec for bitmap cache v3 (rfx, nsc, jpeg)\n"
-				"  --plugin: load a virtual channel plugin\n"
-				"  --rfx: enable RemoteFX\n"
-				"  --rfx-mode: RemoteFX operational flags (v[ideo], i[mage]), default is video\n"
-				"  --rfx-only: don't mix other codecs with RemoteFX\n"
-				"  --rfx-entropy: Entropy flags (1:RLGR1, 2:RLGR2, 3:RLGR1 & RLGR3), default is 3\n"
-				"  --frame-ack: number of frames pending to be acknowledged, default is 2 (disable with 0)\n"
-				"  --nsc: enable NSCodec (experimental)\n"
-#ifdef WITH_JPEG
-				"  --jpeg: enable jpeg codec, uses 75 quality\n"
-				"  --jpegex: enable jpeg and set quality(1..99)\n"
-#endif
-				"  --disable-wallpaper: disables wallpaper\n"
-				"  --composition: enable desktop composition\n"
-				"  --disable-full-window-drag: disables full window drag\n"
-				"  --disable-menu-animations: disables menu animations\n"
-				"  --disable-theming: disables theming\n"
-				"  --no-nego: disable negotiation of security layer and enforce highest enabled security protocol\n"
-				"  --no-rdp: disable Standard RDP encryption\n"
-				"  --no-tls: disable TLS encryption\n"
-				"  --no-nla: disable network level authentication\n"
-				"  --ntlm: force NTLM authentication protocol version (1 or 2)\n"
-				"  --ignore-certificate: ignore verification of logon certificate\n"
-				"  --certificate-name: use this name for the logon certificate, instead of the server name\n"
-				"  --sec: force protocol security (rdp, tls or nla)\n"
-				"  --tsg: Terminal Server Gateway (<username> <password> <hostname>)\n"
-				"  --kbd-list: list all keyboard layout ids used by -k\n"
-				"  --no-salted-checksum: disable salted checksums with Standard RDP encryption\n"
-				"  --pcid: preconnection id\n"
-				"  --pcb: preconnection blob\n"
-				"  --version: print version information\n"
-				"\n", argv[0]);
 			return FREERDP_ARGS_PARSE_HELP; /* TODO: What is the correct return? */
 		}
 		else if (strcmp("-a", argv[index]) == 0)
@@ -872,6 +875,9 @@ int freerdp_parse_args(rdpSettings* settings, int argc, char** argv,
 					printf("invalid option: %s\n", argv[index]);
 					return FREERDP_ARGS_PARSE_FAILURE;
 				}
+				else if (t < 0)
+					return t;
+				
 				index += t - 1;
 			}
 		}

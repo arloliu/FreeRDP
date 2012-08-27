@@ -426,7 +426,14 @@ void wf_gdi_surface_bits(rdpContext* context, SURFACE_BITS_COMMAND* surface_bits
 
 	if (surface_bits_command->codecID == CODEC_ID_REMOTEFX)
 	{
-		message = rfx_process_message(rfx_context, surface_bits_command->bitmapData, surface_bits_command->bitmapDataLength);
+		RECTANGLE_16 dest_rect;
+
+		dest_rect.left = surface_bits_command->destLeft;
+		dest_rect.top = surface_bits_command->destTop;
+		dest_rect.right = surface_bits_command->destRight;
+		dest_rect.bottom = surface_bits_command->destBottom;
+
+		message = rfx_process_message(rfx_context, surface_bits_command->bitmapData, surface_bits_command->bitmapDataLength, &dest_rect);
 
 		/* blit each tile */
 		for (i = 0; i < message->num_tiles; i++)

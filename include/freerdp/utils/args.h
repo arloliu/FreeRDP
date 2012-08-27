@@ -41,6 +41,7 @@ typedef int (*ProcessPluginArgs) (rdpSettings* settings, const char* name,
 typedef int (*ProcessUIArgs) (rdpSettings* settings, const char* opt,
 	const char* val, void* user_data);
 
+FREERDP_API void freerdp_print_args_help(const char* program);
 FREERDP_API int freerdp_parse_args(rdpSettings* settings, int argc, char** argv,
 	ProcessPluginArgs plugin_callback, void* plugin_user_data,
 	ProcessUIArgs ui_callback, void* ui_user_data);

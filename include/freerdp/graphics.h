@@ -38,6 +38,9 @@ typedef void (*pBitmap_Decompress)(rdpContext* context, rdpBitmap* bitmap,
 		uint8* data, int width, int height, int bpp, int length,
 		boolean compressed, int codec_id);
 typedef void (*pBitmap_SetSurface)(rdpContext* context, rdpBitmap* bitmap, boolean primary);
+typedef void (*pBitmap_CodecProcess)(rdpContext* context, rdpBitmap* bitmap,
+		uint8* data, int width, int height, int bpp, int length, 
+		boolean compressed, void* pContext);
 
 struct rdp_bitmap
 {
@@ -47,7 +50,11 @@ struct rdp_bitmap
 	pBitmap_Paint Paint; /* 3 */
 	pBitmap_Decompress Decompress; /* 4 */
 	pBitmap_SetSurface SetSurface; /* 5 */
-	uint32 paddingA[16 - 6];  /* 6 */
+	pBitmap_CodecProcess RfxProcess; /* 6 */
+	pBitmap_CodecProcess NscProcess; /* 7 */
+	pBitmap_CodecProcess JpegProcess; /* 8 */
+	pBitmap_CodecProcess BitmapProcess; /* 9 */
+	uint32 paddingA[16 - 10];  /* 10 */
 
 	uint32 left; /* 16 */
 	uint32 top; /* 17 */

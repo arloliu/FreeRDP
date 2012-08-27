@@ -35,6 +35,8 @@
 #include "rfx_dwt.h"
 
 #include "rfx_decode.h"
+#include <freerdp/platform.h>
+#include PLATFORM_LOCAL_HEADER_FILE(rfx_platform, FREERDP_PLATFORM)
 
 static void rfx_decode_format_rgb(sint16* r_buf, sint16* g_buf, sint16* b_buf,
 	RDP_PIXEL_FORMAT pixel_format, uint8* dst_buf)
@@ -152,25 +154,27 @@ void rfx_decode_ycbcr_to_rgb(sint16* y_r_buf, sint16* cb_g_buf, sint16* cr_b_buf
 static void rfx_decode_component(RFX_CONTEXT* context, const uint32* quantization_values,
 	const uint8* data, int size, sint16* buffer)
 {
-	PROFILER_ENTER(context->priv->prof_rfx_decode_component);
+	RFX_CONTEXT_DEFAULT_PRIV* priv = (RFX_CONTEXT_DEFAULT_PRIV*) context->priv;
 
-	PROFILER_ENTER(context->priv->prof_rfx_rlgr_decode);
+	PROFILER_ENTER(priv->prof_rfx_decode_component);
+
+	PROFILER_ENTER(priv->prof_rfx_rlgr_decode);
 		rfx_rlgr_decode(context->mode, data, size, buffer, 4096);
-	PROFILER_EXIT(context->priv->prof_rfx_rlgr_decode);
+	PROFILER_EXIT(priv->prof_rfx_rlgr_decode);
 
-	PROFILER_ENTER(context->priv->prof_rfx_differential_decode);
+	PROFILER_ENTER(priv->prof_rfx_differential_decode);
 		rfx_differential_decode(buffer + 4032, 64);
-	PROFILER_EXIT(context->priv->prof_rfx_differential_decode);
+	PROFILER_EXIT(priv->prof_rfx_differential_decode);
 
-	PROFILER_ENTER(context->priv->prof_rfx_quantization_decode);
-		context->quantization_decode(buffer, quantization_values);
-	PROFILER_EXIT(context->priv->prof_rfx_quantization_decode);
+	PROFILER_ENTER(priv->prof_rfx_quantization_decode);
+		priv->quantization_decode(buffer, quantization_values);
+	PROFILER_EXIT(priv->prof_rfx_quantization_decode);
 
-	PROFILER_ENTER(context->priv->prof_rfx_dwt_2d_decode);
-		context->dwt_2d_decode(buffer, context->priv->dwt_buffer);
-	PROFILER_EXIT(context->priv->prof_rfx_dwt_2d_decode);
+	PROFILER_ENTER(priv->prof_rfx_dwt_2d_decode);
+		priv->dwt_2d_decode(buffer, priv->dwt_buffer);
+	PROFILER_EXIT(priv->prof_rfx_dwt_2d_decode);
 
-	PROFILER_EXIT(context->priv->prof_rfx_decode_component);
+	PROFILER_EXIT(priv->prof_rfx_decode_component);
 }
 
 void rfx_decode_rgb(RFX_CONTEXT* context, STREAM* data_in,
@@ -178,23 +182,25 @@ void rfx_decode_rgb(RFX_CONTEXT* context, STREAM* data_in,
 	int cb_size, const uint32 * cb_quants,
 	int cr_size, const uint32 * cr_quants, uint8* rgb_buffer)
 {
-	PROFILER_ENTER(context->priv->prof_rfx_decode_rgb);
+	RFX_CONTEXT_DEFAULT_PRIV* priv = (RFX_CONTEXT_DEFAULT_PRIV*)context->priv;
 
-	rfx_decode_component(context, y_quants, stream_get_tail(data_in), y_size, context->priv->y_r_buffer); /* YData */
+	PROFILER_ENTER(priv->prof_rfx_decode_rgb);
+
+	rfx_decode_component(context, y_quants, stream_get_tail(data_in), y_size, priv->y_r_buffer); /* YData */
 	stream_seek(data_in, y_size);
-	rfx_decode_component(context, cb_quants, stream_get_tail(data_in), cb_size, context->priv->cb_g_buffer); /* CbData */
+	rfx_decode_component(context, cb_quants, stream_get_tail(data_in), cb_size, priv->cb_g_buffer); /* CbData */
 	stream_seek(data_in, cb_size);
-	rfx_decode_component(context, cr_quants, stream_get_tail(data_in), cr_size, context->priv->cr_b_buffer); /* CrData */
+	rfx_decode_component(context, cr_quants, stream_get_tail(data_in), cr_size, priv->cr_b_buffer); /* CrData */
 	stream_seek(data_in, cr_size);
 
-	PROFILER_ENTER(context->priv->prof_rfx_decode_ycbcr_to_rgb);
-		context->decode_ycbcr_to_rgb(context->priv->y_r_buffer, context->priv->cb_g_buffer, context->priv->cr_b_buffer);
-	PROFILER_EXIT(context->priv->prof_rfx_decode_ycbcr_to_rgb);
+	PROFILER_ENTER(priv->prof_rfx_decode_ycbcr_to_rgb);
+		priv->decode_ycbcr_to_rgb(priv->y_r_buffer, priv->cb_g_buffer, priv->cr_b_buffer);
+	PROFILER_EXIT(priv->prof_rfx_decode_ycbcr_to_rgb);
 
-	PROFILER_ENTER(context->priv->prof_rfx_decode_format_rgb);
-		rfx_decode_format_rgb(context->priv->y_r_buffer, context->priv->cb_g_buffer, context->priv->cr_b_buffer,
+	PROFILER_ENTER(priv->prof_rfx_decode_format_rgb);
+		rfx_decode_format_rgb(priv->y_r_buffer, priv->cb_g_buffer, priv->cr_b_buffer,
 			context->pixel_format, rgb_buffer);
-	PROFILER_EXIT(context->priv->prof_rfx_decode_format_rgb);
+	PROFILER_EXIT(priv->prof_rfx_decode_format_rgb);
 	
-	PROFILER_EXIT(context->priv->prof_rfx_decode_rgb);
+	PROFILER_EXIT(priv->prof_rfx_decode_rgb);
 }

@@ -42,6 +42,16 @@ set(FREERDP_CLIENT_X11_SRCS
 	xfreerdp.c
 	xfreerdp.h)
 
+# Default platform
+if(FREERDP_PLATFORM STREQUAL "default")
+	set(FREERDP_CLIENT_X11_SRCS ${FREERDP_CLIENT_X11_SRCS} xf_platform_default.c xf_platform_default.h)
+endif()
+
+# Cloudvue CVT8311 RemoteFX decoder platform
+if(FREERDP_PLATFORM STREQUAL "cvt")
+	set(FREERDP_CLIENT_X11_SRCS ${FREERDP_CLIENT_X11_SRCS} xf_platform_cvt.c xf_platform_cvt.h)
+endif()
+
 add_executable(xfreerdp ${FREERDP_CLIENT_X11_SRCS})
 
 set(FREERDP_CLIENT_X11_LIBS

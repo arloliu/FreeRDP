@@ -104,6 +104,7 @@ typedef enum RDP_PIXEL_FORMAT RDP_PIXEL_FORMAT;
  * CPU Optimization flags
  */
 #define CPU_SSE2			0x1
+#define CPU_NEON			0x2
 
 /**
  * OSMajorType

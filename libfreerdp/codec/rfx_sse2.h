@@ -22,10 +22,15 @@
 
 #include <freerdp/codec/rfx.h>
 
-void rfx_init_sse2(RFX_CONTEXT* context);
+void rfx_init_decoder_sse2(RFX_CONTEXT* context);
+void rfx_init_encoder_sse2(RFX_COMPOSE_CONTEXT* context);
 
-#ifndef RFX_INIT_SIMD
-#define RFX_INIT_SIMD(_rfx_context) rfx_init_sse2(_rfx_context)
+#ifndef RFX_INIT_DECODER_SIMD
+#define RFX_INIT_DECODER_SIMD(_rfx_context) rfx_init_decoder_sse2(_rfx_context)
+#endif
+
+#ifndef RFX_INIT_ENCODER_SIMD
+#define RFX_INIT_ENCODER_SIMD(_rfx_context) rfx_init_encoder_sse2(_rfx_context)
 #endif
 
 #endif /* __RFX_SSE2_H */

@@ -334,22 +334,26 @@ int isNeonSupported()
 }
 
 
-void rfx_init_neon(RFX_CONTEXT * context)
+void rfx_init_decoder_neon(RFX_CONTEXT * context)
 {
-
+    RFX_CONTEXT_DEFAULT_PRIV* priv = (RFX_CONTEXT_DEFAULT_PRIV*)context->priv;
 
 	if(isNeonSupported())
 	{
 		DEBUG_RFX("Using NEON optimizations");
 
-		IF_PROFILER(context->priv->prof_rfx_decode_ycbcr_to_rgb->name = "rfx_decode_YCbCr_to_RGB_NEON");
-		IF_PROFILER(context->priv->prof_rfx_quantization_decode->name = "rfx_quantization_decode_NEON");
-		IF_PROFILER(context->priv->prof_rfx_dwt_2d_decode->name = "rfx_dwt_2d_decode_NEON");
+		IF_PROFILER(priv->prof_rfx_decode_ycbcr_to_rgb->name = "rfx_decode_YCbCr_to_RGB_NEON");
+		IF_PROFILER(priv->prof_rfx_quantization_decode->name = "rfx_quantization_decode_NEON");
+		IF_PROFILER(priv->prof_rfx_dwt_2d_decode->name = "rfx_dwt_2d_decode_NEON");
 
-		context->decode_ycbcr_to_rgb = rfx_decode_YCbCr_to_RGB_NEON;
-		context->quantization_decode = rfx_quantization_decode_NEON;
-		context->dwt_2d_decode = rfx_dwt_2d_decode_NEON;
+		priv->decode_ycbcr_to_rgb = rfx_decode_YCbCr_to_RGB_NEON;
+		priv->quantization_decode = rfx_quantization_decode_NEON;
+		priv->dwt_2d_decode = rfx_dwt_2d_decode_NEON;
 	}
+}
+
+void rfx_init_encoder_neon(RFX_COMPOSE_CONTEXT * context)
+{
 }
 
 #endif // __ARM_NEON__

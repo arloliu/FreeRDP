@@ -44,7 +44,7 @@ struct xf_peer_context
 	pthread_t thread;
 	boolean activated;
 	pthread_mutex_t mutex;
-	RFX_CONTEXT* rfx_context;
+	RFX_COMPOSE_CONTEXT* rfx_context;
 	xfEventQueue* event_queue;
 	pthread_t frame_rate_thread;
 };

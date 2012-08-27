@@ -83,6 +83,7 @@ struct thread_data
 	freerdp* instance;
 };
 
+void xf_print_client_args_help(void);
 int xf_process_client_args(rdpSettings* settings, const char* opt, const char* val, void* user_data);
 int xf_process_plugin_args(rdpSettings* settings, const char* name, RDP_PLUGIN_DATA* plugin_data, void* user_data);
 
@@ -242,11 +243,10 @@ void xf_hw_desktop_resize(rdpContext* context)
 		{
 			same = (xfi->primary == xfi->drawing) ? true : false;
 
-			XFreePixmap(xfi->display, xfi->primary);
-
-			xfi->primary = XCreatePixmap(xfi->display, xfi->drawable,
-					xfi->width, xfi->height, xfi->depth);
-
+			IFCALL(xfi->PrimarySurfaceLock, xfi);
+			IFCALL(xfi->PrimarySurfaceFree, xfi);
+			IFCALL(xfi->PrimarySurfaceCreate, xfi);
+			IFCALL(xfi->PrimarySurfaceUnlock, xfi);
 			if (same)
 				xfi->drawing = xfi->primary;
 		}
@@ -338,6 +338,8 @@ void xf_toggle_fullscreen(xfInfo* xfi)
 {
 	Pixmap contents = 0;
 
+	IFCALL(xfi->PrimarySurfaceLock, xfi);
+
 	contents = XCreatePixmap(xfi->display, xfi->window->handle, xfi->width, xfi->height, xfi->depth);
 	XCopyArea(xfi->display, xfi->primary, contents, xfi->gc, 0, 0, xfi->width, xfi->height, 0, 0);
 
@@ -347,6 +349,8 @@ void xf_toggle_fullscreen(xfInfo* xfi)
 
 	XCopyArea(xfi->display, contents, xfi->primary, xfi->gc, 0, 0, xfi->width, xfi->height, 0, 0);
 	XFreePixmap(xfi->display, contents);
+
+	IFCALL(xfi->PrimarySurfaceUnlock, xfi);
 }
 
 boolean xf_get_pixmap_info(xfInfo* xfi)
@@ -463,6 +467,161 @@ int _xf_error_handler(Display* d, XErrorEvent* ev)
 	return xf_error_handler(d, ev);
 }
 
+void cpuid(unsigned info, unsigned *eax, unsigned *ebx, unsigned *ecx, unsigned *edx)
+{
+#ifdef __GNUC__
+#if defined(__i386__) || defined(__x86_64__)
+	__asm volatile
+	(
+		/* The EBX (or RBX register on x86_64) is used for the PIC base address
+		   and must not be corrupted by our inline assembly. */
+#if defined(__i386__)
+		"mov %%ebx, %%esi;"
+		"cpuid;"
+		"xchg %%ebx, %%esi;"
+#else
+		"mov %%rbx, %%rsi;"
+		"cpuid;"
+		"xchg %%rbx, %%rsi;"
+#endif
+		: "=a" (*eax), "=S" (*ebx), "=c" (*ecx), "=d" (*edx)
+		: "0" (info)
+	);
+#endif
+#endif
+}
+
+uint32 xf_detect_cpu()
+{
+	unsigned int eax, ebx, ecx, edx = 0;
+	uint32 cpu_opt = 0;
+
+	cpuid(1, &eax, &ebx, &ecx, &edx);
+
+	if (edx & (1<<26)) 
+	{
+		DEBUG("SSE2 detected");
+		cpu_opt |= CPU_SSE2;
+	}
+#if defined(__ARM_NEON__)
+	cpu_opt |= CPU_NEON;
+#endif
+
+	return cpu_opt;
+}
+
+static void xf_codec_context_create(xfInfo* xfi)
+{
+	RFX_CONTEXT* rfx_context = NULL;
+	NSC_CONTEXT* nsc_context = NULL;
+#ifdef WITH_SSE2
+	uint32 cpu;
+#endif
+
+	if (xfi->sw_gdi)
+	{
+		rfx_context = xfi->instance->context->gdi->rfx_context;
+	}
+	else
+	{
+		if (xfi->instance->settings->rfx_codec)
+		{
+			rfx_context = (void*) rfx_context_new(NULL);
+		}
+
+		if (xfi->instance->settings->ns_codec)
+		{
+			nsc_context = (void*) nsc_context_new();
+		}
+	}
+	xfi->rfx_context = rfx_context;
+	xfi->nsc_context = nsc_context;
+
+#ifdef WITH_SSE2
+	/* detect only if needed */
+	cpu = xf_detect_cpu();
+	if (rfx_context)
+		IFCALL(rfx_context->set_cpu_opt, rfx_context, cpu);
+	if (nsc_context)
+		nsc_context_set_cpu_opt(nsc_context, cpu);
+#endif
+
+}
+
+static void xf_codec_context_free(xfInfo* xfi)
+{
+	if (xfi->rfx_context) 
+	{
+		rfx_context_free(xfi->rfx_context);
+		xfi->rfx_context = NULL;
+	}
+
+	if (xfi->nsc_context)
+	{
+		nsc_context_free(xfi->nsc_context);
+		xfi->nsc_context = NULL;
+	}
+}
+
+static void xf_primary_surface_free(xfInfo* xfi)
+{
+	if (xfi->primary)
+	{
+		XFreePixmap(xfi->display, xfi->primary);
+		xfi->primary = 0;
+	}
+}
+
+static boolean xf_primary_surface_create(xfInfo* xfi)
+{
+	if (xfi->primary)
+	{
+		IFCALL(xfi->PrimarySurfaceFree, xfi);
+	}
+	xfi->primary = XCreatePixmap(xfi->display, xfi->drawable, xfi->width, xfi->height, xfi->depth);
+	return xfi->primary ? true : false;
+}
+
+static boolean xf_primary_surface_lock(xfInfo* xfi)
+{
+	XLockDisplay(xfi->display);
+	return true;
+}
+
+static boolean xf_primary_surface_unlock(xfInfo* xfi)
+{
+	XUnlockDisplay(xfi->display);
+	return true;
+}
+
+static boolean xf_update_window_area_lock(xfInfo* xfi)
+{
+	XLockDisplay(xfi->display);
+	return true;
+}
+
+static boolean xf_update_window_area_unlock(xfInfo* xfi)
+{
+	XUnlockDisplay(xfi->display);
+	return true;
+}
+
+void xf_register_callbacks(xfInfo* xfi)
+{
+	xfi->MonitorDetect = xf_detect_monitors;
+	xfi->CodecContextCreate = xf_codec_context_create;
+	xfi->CodecContextFree = xf_codec_context_free;
+	xfi->PrimarySurfaceCreate = xf_primary_surface_create;
+	xfi->PrimarySurfaceFree = xf_primary_surface_free;
+	xfi->PrimarySurfaceLock = xf_primary_surface_lock;
+	xfi->PrimarySurfaceUnlock = xf_primary_surface_unlock;
+	xfi->UpdateWindowAreaLock = xf_update_window_area_lock;
+	xfi->UpdateWindowAreaUnlock = xf_update_window_area_unlock;
+	xfi->AsyncDrawingLock = NULL;
+	xfi->AsyncDrawingUnlock = NULL;
+	xf_platform_register_system_callbacks(xfi);
+}
+
 /**
  * Callback given to freerdp_connect() to process the pre-connect operations.
  * It will parse the command line parameters given to xfreerdp (using freerdp_parse_args())
@@ -488,12 +647,20 @@ boolean xf_pre_connect(freerdp* instance)
 	xfi->context = (xfContext*) instance->context;
 	xfi->context->settings = instance->settings;
 	xfi->instance = instance;
+
+	xf_platform_init(xfi);
+	xf_register_callbacks(xfi);
 	
 	arg_parse_result = freerdp_parse_args(instance->settings, instance->context->argc,instance->context->argv,
 				xf_process_plugin_args, instance->context->channels, xf_process_client_args, xfi);
 	
 	if (arg_parse_result < 0)
 	{
+		if (arg_parse_result == FREERDP_ARGS_PARSE_HELP)
+		{
+			freerdp_print_args_help(instance->context->argv[0]);
+			xf_print_client_args_help();
+		}
 		if (arg_parse_result == FREERDP_ARGS_PARSE_FAILURE)
 			fprintf(stderr, "%s:%d: failed to parse arguments.\n", __FILE__, __LINE__);
 		
@@ -534,7 +701,7 @@ boolean xf_pre_connect(freerdp* instance)
 
 	settings->order_support[NEG_ELLIPSE_SC_INDEX] = false;
 	settings->order_support[NEG_ELLIPSE_CB_INDEX] = false;
-
+	
 	freerdp_channels_pre_connect(xfi->_context->channels, instance);
 
   if (settings->authentication_only) {
@@ -550,6 +717,12 @@ boolean xf_pre_connect(freerdp* instance)
 		fprintf(stderr, "%s:%d: Authenication only. Don't connect to X.\n", __FILE__, __LINE__);
 		// Avoid XWindows initialization and configuration below.
 		return true;
+	}
+
+	if (!XInitThreads())
+	{
+		printf("Can't initializes Xlib support for concurrent threads\n");
+		return false;
 	}
 
 	xfi->display = XOpenDisplay(NULL);
@@ -611,49 +784,12 @@ boolean xf_pre_connect(freerdp* instance)
 	xfi->sw_gdi = settings->sw_gdi;
 	xfi->parent_window = (Window) settings->parent_window_xid;
 
-	xf_detect_monitors(xfi, settings);
+	IFCALL(xfi->MonitorDetect, xfi, settings);
+
+	/* setup platform capabilities after default setup */
+	xf_platform_setup_capabilities(xfi);
 
 	return true;
-}
-
-void cpuid(unsigned info, unsigned *eax, unsigned *ebx, unsigned *ecx, unsigned *edx)
-{
-#ifdef __GNUC__
-#if defined(__i386__) || defined(__x86_64__)
-	__asm volatile
-	(
-		/* The EBX (or RBX register on x86_64) is used for the PIC base address
-		   and must not be corrupted by our inline assembly. */
-#if defined(__i386__)
-		"mov %%ebx, %%esi;"
-		"cpuid;"
-		"xchg %%ebx, %%esi;"
-#else
-		"mov %%rbx, %%rsi;"
-		"cpuid;"
-		"xchg %%rbx, %%rsi;"
-#endif
-		: "=a" (*eax), "=S" (*ebx), "=c" (*ecx), "=d" (*edx)
-		: "0" (info)
-	);
-#endif
-#endif
-}
-
-uint32 xf_detect_cpu()
-{
-	unsigned int eax, ebx, ecx, edx = 0;
-	uint32 cpu_opt = 0;
-
-	cpuid(1, &eax, &ebx, &ecx, &edx);
-
-	if (edx & (1<<26)) 
-	{
-		DEBUG("SSE2 detected");
-		cpu_opt |= CPU_SSE2;
-	}
-
-	return cpu_opt;
 }
 
 /**
@@ -663,15 +799,10 @@ uint32 xf_detect_cpu()
  */
 boolean xf_post_connect(freerdp* instance)
 {
-#ifdef WITH_SSE2
-	uint32 cpu;
-#endif
 	xfInfo* xfi;
 	XGCValues gcv;
 	rdpCache* cache;
 	rdpChannels* channels;
-	RFX_CONTEXT* rfx_context = NULL;
-	NSC_CONTEXT* nsc_context = NULL;
 
 	xfi = ((xfContext*) instance->context)->xfi;
 	cache = instance->context->cache;
@@ -697,8 +828,6 @@ boolean xf_post_connect(freerdp* instance)
 		gdi_init(instance, flags, NULL);
 		gdi = instance->context->gdi;
 		xfi->primary_buffer = gdi->primary_buffer;
-
-		rfx_context = gdi->rfx_context;
 	}
 	else
 	{
@@ -706,28 +835,7 @@ boolean xf_post_connect(freerdp* instance)
 		xf_gdi_register_update_callbacks(instance->update);
 
 		xfi->hdc = gdi_CreateDC(xfi->clrconv, xfi->bpp);
-
-		if (instance->settings->rfx_codec)
-		{
-			rfx_context = (void*) rfx_context_new();
-			xfi->rfx_context = rfx_context;
-		}
-
-		if (instance->settings->ns_codec)
-		{
-			nsc_context = (void*) nsc_context_new();
-			xfi->nsc_context = nsc_context;
-		}
 	}
-
-#ifdef WITH_SSE2
-	/* detect only if needed */
-	cpu = xf_detect_cpu();
-	if (rfx_context)
-		rfx_context_set_cpu_opt(rfx_context, cpu);
-	if (nsc_context)
-		nsc_context_set_cpu_opt(nsc_context, cpu);
-#endif
 
 	xfi->width = instance->settings->width;
 	xfi->height = instance->settings->height;
@@ -738,7 +846,7 @@ boolean xf_post_connect(freerdp* instance)
 	xfi->modifier_map = XGetModifierMapping(xfi->display);
 
 	xfi->gc = XCreateGC(xfi->display, xfi->drawable, GCGraphicsExposures, &gcv);
-	xfi->primary = XCreatePixmap(xfi->display, xfi->drawable, xfi->width, xfi->height, xfi->depth);
+	IFCALL(xfi->PrimarySurfaceCreate, xfi);
 	xfi->drawing = xfi->primary;
 
 	xfi->bitmap_mono = XCreatePixmap(xfi->display, xfi->drawable, 8, 8, 1);
@@ -752,6 +860,8 @@ boolean xf_post_connect(freerdp* instance)
 
 	xfi->bmp_codec_none = (uint8*) xmalloc(64 * 64 * 4);
 
+	IFCALL(xfi->CodecContextCreate, xfi);
+	
 	if (xfi->sw_gdi)
 	{
 		instance->update->BeginPaint = xf_sw_begin_paint;
@@ -854,6 +964,18 @@ boolean xf_verify_certificate(freerdp* instance, char* subject, char* issuer, ch
 	return false;
 }
 
+void xf_print_client_args_help(void)
+{
+	printf(
+		"X11 RDP Client Options:\n"
+		"  --kbd-list: list all keyboard layout ids used by -k\n"
+		"  --xv-port: Specify XVideo port for video redirection extension, default is 0\n"
+		"  --dbg-x11: Enable X11 debug mode\n"
+		"\n"
+	);
+	xf_platform_print_args();
+}
+
 /** Used to parse xfreerdp-specific commandline parameters.
  *  This function is provided as a parameter to freerdp_parse_args(), that will call it
  *  each time a parameter is not recognized by the library.
@@ -918,6 +1040,11 @@ int xf_process_client_args(rdpSettings* settings, const char* opt, const char* v
 	{
 		xfi->debug = true;
 		argc = 1;
+	}
+	else
+	{
+		/* Process platform specific commandline parameters */
+		argc = xf_platform_process_args(settings, opt, val, user_data);
 	}
 
 	return argc;
@@ -1039,17 +1166,7 @@ void xf_window_free(xfInfo* xfi)
 			context->rail = NULL;
 	}
 
-	if (xfi->rfx_context) 
-	{
-		rfx_context_free(xfi->rfx_context);
-		xfi->rfx_context = NULL;
-	}
-
-	if (xfi->nsc_context)
-	{
-		nsc_context_free(xfi->nsc_context);
-		xfi->nsc_context = NULL;
-	}
+	IFCALL(xfi->CodecContextFree, xfi);
 
 	freerdp_clrconv_free(xfi->clrconv);
 
@@ -1065,6 +1182,8 @@ void xf_free(xfInfo* xfi)
 	xf_window_free(xfi);
 
 	xfree(xfi->bmp_codec_none);
+
+	xf_platform_uninit(xfi);
 
 	XCloseDisplay(xfi->display);
 
