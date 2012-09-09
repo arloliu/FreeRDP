@@ -184,6 +184,10 @@ if(PLATFORM)
 	set(FREERDP_PLATFORM  "${PLATFORM}")
 endif()
 
+if(FREERDP_PLATFORM STREQUAL "cvt")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv5te -mfloat-abi=softfp -mthumb -ftree-vectorize")
+endif()
+
 # Include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
